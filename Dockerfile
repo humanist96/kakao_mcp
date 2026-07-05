@@ -5,14 +5,13 @@ WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 
 # 의존성 레이어 분리 (소스 변경 시 재설치 방지)
+# BuildKit 전용 --mount=type=cache는 PlayMCP in KC 빌더(kaniko 계열)가 지원하지 않아 쓰지 않는다
 COPY pyproject.toml uv.lock ./
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-install-project --no-dev
+RUN uv sync --frozen --no-install-project --no-dev
 
 COPY src ./src
 COPY README.md ./
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev
 
 FROM python:3.12-slim-bookworm
 
