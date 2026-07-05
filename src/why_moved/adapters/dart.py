@@ -100,13 +100,21 @@ class DartClient:
         return data.get("list", [])
 
     async def get_executive_holdings(self, corp_code: str) -> list[dict]:
-        """임원·주요주주 소유상황 보고 (내부자 매매)."""
+        """임원·주요주주 소유상황 보고 (내부자 매매). rcept_dt는 YYYYMMDD로 정규화."""
         key = f"dart:elestock:{corp_code}"
         data = await self._get("elestock.json", {"corp_code": corp_code}, OWNERSHIP_TTL, key)
-        return data.get("list", [])
+        return _normalize_dates(data.get("list", []))
 
     async def get_major_holdings(self, corp_code: str) -> list[dict]:
-        """5% 대량보유 보고."""
+        """5% 대량보유 보고. rcept_dt는 YYYYMMDD로 정규화."""
         key = f"dart:majorstock:{corp_code}"
         data = await self._get("majorstock.json", {"corp_code": corp_code}, OWNERSHIP_TTL, key)
-        return data.get("list", [])
+        return _normalize_dates(data.get("list", []))
+
+
+def _normalize_dates(rows: list[dict]) -> list[dict]:
+    """지분공시 API는 rcept_dt를 '2024-08-01' 형식으로 준다 — YYYYMMDD로 통일한 새 목록 반환."""
+    return [
+        {**row, "rcept_dt": str(row.get("rcept_dt", "")).replace("-", "")}
+        for row in rows
+    ]

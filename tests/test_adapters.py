@@ -194,3 +194,17 @@ class TestKindClient:
         )
         kind = KindClient(cache)
         assert await kind.is_managed("123456") is None
+
+
+class TestDartDateNormalization:
+    @respx.mock
+    async def test_elestock_dates_normalized(self, cache):
+        respx.get(url__startswith="https://opendart.fss.or.kr/api/elestock.json").mock(
+            return_value=httpx.Response(200, json={
+                "status": "000",
+                "list": [{"rcept_no": "1", "rcept_dt": "2026-07-01", "sp_stock_lmp_irds_cnt": "100"}],
+            })
+        )
+        client = DartClient("key", cache)
+        rows = await client.get_executive_holdings("X")
+        assert rows[0]["rcept_dt"] == "20260701"
