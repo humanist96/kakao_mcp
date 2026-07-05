@@ -23,7 +23,8 @@ class Settings:
             cache_db_path=os.environ.get("CACHE_DB_PATH", "data/cache.db"),
             http_timeout_seconds=float(os.environ.get("HTTP_TIMEOUT_SECONDS", "5")),
             server_host=os.environ.get("SERVER_HOST", "0.0.0.0"),
-            server_port=int(os.environ.get("SERVER_PORT", "8000")),
+            # PaaS(PlayMCP in KC 등)가 PORT를 주입하는 관례 지원
+            server_port=int(os.environ.get("SERVER_PORT") or os.environ.get("PORT") or "8000"),
         )
 
 
