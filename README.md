@@ -48,17 +48,36 @@ curl http://localhost:8000/health
 # MCP 엔드포인트: http://localhost:8000/mcp
 ```
 
+## Docker 배포 (카카오클라우드 VM 권장 방식)
+
+```bash
+docker build -t why-moved .
+docker run -d --name why-moved \
+  -p 8000:8000 \
+  -e DART_API_KEY=발급받은키 \
+  -v why-moved-cache:/data \
+  --restart unless-stopped \
+  why-moved
+
+curl http://localhost:8000/health
+```
+
+- 캐시 DB는 `/data` 볼륨에 저장되어 재시작해도 DART 일 20,000건 한도를 절약합니다.
+- 헬스체크 내장 (`HEALTHCHECK` → `docker ps`에서 healthy 확인).
+- PlayMCP 등록 전 HTTPS가 필요하면 caddy를 앞단에 두는 것이 가장 간단합니다:
+  `caddy reverse-proxy --from <도메인> --to localhost:8000`
+
 ## 테스트
 
 ```bash
-uv run pytest --cov    # 83 tests, 커버리지 82%
+uv run pytest --cov    # 84 tests, 커버리지 82%
 ```
 
 ## PlayMCP 등록 체크리스트 (사용자 직접 작업)
 
 1. [ ] DART API 키 발급 → `.env` 설정
 2. [ ] 카카오클라우드 VM 생성 (공모전 공식 노션 가이드 참조) 후 본 서버 배포
-   - `uv sync && DART_API_KEY=... uv run why-moved` (또는 systemd/도커)
+   - Docker 사용 (위 섹션) 또는 `uv sync && DART_API_KEY=... uv run why-moved`
    - HTTPS 리버스 프록시 권장 (caddy/nginx)
 3. [ ] PlayMCP 개발자 콘솔에 `https://<도메인>/mcp` 엔드포인트 임시 등록 → 테스트
 4. [ ] "등록 및 심사 요청" (심사 최대 7영업일 — **7/8까지 요청 권장**)
