@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>왜움직여? — MCP 테스트 클라이언트</title>
+<style>
+  :root {
+    --bg: #141517; --panel: #1b1e22; --input: rgba(255,255,255,0.06);
+    --text: #f3f3f3; --sub: #a4a6aa; --line: #3a3e43; --accent: #FEE500;
+    --ok: #4ade80; --warn: #fbbf24; --danger: #f87171;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font-family: Pretendard, -apple-system, "Apple SD Gothic Neo", sans-serif; }
+  header { padding: 20px 28px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 14px; }
+  header h1 { font-size: 20px; margin: 0; }
+  header .badge { font-size: 12px; color: var(--bg); background: var(--accent);
+    border-radius: 20px; padding: 3px 10px; font-weight: 700; }
+  header .status { margin-left: auto; font-size: 13px; color: var(--sub); }
+  header .status b { color: var(--ok); }
+  main { display: grid; grid-template-columns: 320px 1fr; gap: 0; height: calc(100vh - 65px); }
+  #sidebar { border-right: 1px solid var(--line); overflow-y: auto; padding: 16px; }
+  #sidebar h2 { font-size: 13px; color: var(--sub); text-transform: uppercase; margin: 8px 0; }
+  .tool-btn { display: block; width: 100%; text-align: left; background: var(--panel);
+    color: var(--text); border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px 14px; margin-bottom: 8px; cursor: pointer; font-size: 14px; }
+  .tool-btn:hover { border-color: var(--accent); }
+  .tool-btn.active { border-color: var(--accent); background: #26241a; }
+  .tool-btn small { display: block; color: var(--sub); margin-top: 4px; font-size: 12px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #content { overflow-y: auto; padding: 24px 28px; }
+  .quick { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+  .chip { background: var(--panel); border: 1px solid var(--line); color: var(--text);
+    border-radius: 18px; padding: 8px 14px; font-size: 13px; cursor: pointer; }
+  .chip:hover { border-color: var(--accent); }
+  #form-area { background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 18px; margin-bottom: 18px; }
+  #form-area h3 { margin: 0 0 4px; font-size: 16px; }
+  #form-area p.desc { color: var(--sub); font-size: 13px; margin: 0 0 14px; }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 13px; color: var(--sub); margin-bottom: 5px; }
+  .field input { width: 100%; background: var(--input); border: 1px solid var(--line);
+    color: var(--text); border-radius: 8px; padding: 10px 12px; font-size: 14px; }
+  .field input:focus { outline: none; border-color: var(--accent); }
+  button.run { background: var(--accent); color: #111; font-weight: 700; border: none;
+    border-radius: 8px; padding: 11px 22px; font-size: 14px; cursor: pointer; }
+  button.run:disabled { opacity: 0.5; cursor: wait; }
+  #result { background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 18px; min-height: 120px; }
+  #result .placeholder { color: var(--sub); font-size: 14px; }
+  .r-explanation { font-size: 15px; line-height: 1.7; background: #26241a;
+    border-left: 3px solid var(--accent); padding: 12px 14px; border-radius: 6px;
+    margin-bottom: 14px; white-space: pre-wrap; }
+  .r-section { margin-bottom: 14px; }
+  .r-section h4 { font-size: 13px; color: var(--sub); margin: 0 0 6px;
+    text-transform: uppercase; }
+  .r-card { background: var(--input); border-radius: 8px; padding: 10px 12px;
+    margin-bottom: 6px; font-size: 13.5px; line-height: 1.55; }
+  .r-card a { color: var(--accent); }
+  .level-안전 { color: var(--ok); } .level-주의 { color: var(--warn); }
+  .level-경고 { color: #fb923c; } .level-위험 { color: var(--danger); }
+  .disclaimer { font-size: 12px; color: var(--sub); border-top: 1px dashed var(--line);
+    padding-top: 10px; margin-top: 12px; }
+  details.raw { margin-top: 12px; }
+  details.raw summary { color: var(--sub); font-size: 12.5px; cursor: pointer; }
+  pre { background: #0d0e10; border-radius: 8px; padding: 12px; overflow-x: auto;
+    font-size: 12px; line-height: 1.5; color: #c8e1a8; }
+  .spinner { color: var(--accent); font-size: 14px; }
+  .grade-badge { display: inline-block; font-size: 26px; font-weight: 800;
+    color: var(--accent); margin-right: 10px; }
+  .score-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 4px;
+    font-size: 13px; }
+  .score-bar .bar { flex: 1; height: 8px; background: var(--input); border-radius: 4px;
+    overflow: hidden; }
+  .score-bar .fill { height: 100%; background: var(--accent); }
+  .score-bar .name { width: 70px; color: var(--sub); }
+  .score-bar .val { width: 34px; text-align: right; }
+</style>
+</head>
+<body>
+<header>
+  <h1>왜움직여?</h1><span class="badge">MCP 테스트</span>
+  <span class="status" id="conn-status">연결 중…</span>
+</header>
+<main>
+  <nav id="sidebar"><h2>Tools</h2><div id="tool-list"><span class="spinner">tools 불러오는 중…</span></div></nav>
+  <section id="content">
+    <div class="quick" id="quick-chips">
+      <button class="chip" data-tool="why_moved" data-args='{"query":"삼성전자"}'>삼성전자 오늘 왜 움직였어?</button>
+      <button class="chip" data-tool="risk_check" data-args='{"query":"카카오"}'>카카오 위험신호 점검</button>
+      <button class="chip" data-tool="stock_health" data-args='{"query":"SK하이닉스"}'>SK하이닉스 건강진단</button>
+      <button class="chip" data-tool="explain_disclosure" data-args='{"company":"삼성전자"}'>삼성전자 최신 공시 통역</button>
+      <button class="chip" data-tool="insider_signal" data-args='{"query":"삼성전자","days":30}'>삼성전자 내부자 매매</button>
+      <button class="chip" data-tool="daily_digest" data-args='{}'>오늘의 공시</button>
+      <button class="chip" data-tool="screen_stocks" data-args='{"condition":"배당수익률 4% 이상 PBR 1 이하 코스피"}'>배당주 스크리닝</button>
+    </div>
+    <div id="form-area"><h3>왼쪽에서 tool을 선택하거나 위 예시를 눌러보세요</h3>
+      <p class="desc">배포된 MCP 서버에 실제 요청을 보냅니다.</p></div>
+    <div id="result"><div class="placeholder">결과가 여기에 표시됩니다.</div></div>
+  </section>
+</main>
+<script>
+const PROXY = '/proxy/mcp';
+let sessionId = null;
+let rpcId = 0;
+let tools = [];
+let currentTool = null;
+
+async function rpc(method, params, isNotification = false) {
+  const payload = { jsonrpc: '2.0', method };
+  if (params !== undefined) payload.params = params;
+  if (!isNotification) payload.id = ++rpcId;
+  const headers = { 'Content-Type': 'application/json' };
+  if (sessionId) headers['mcp-session-id'] = sessionId;
+  const resp = await fetch(PROXY, { method: 'POST', headers, body: JSON.stringify(payload) });
+  const sid = resp.headers.get('mcp-session-id');
+  if (sid) sessionId = sid;
+  if (isNotification) return null;
+  const text = await resp.text();
+  const data = parseBody(text, resp.headers.get('content-type') || '');
+  if (data && data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+  return data ? data.result : null;
+}
+
+function parseBody(text, contentType) {
+  if (contentType.includes('text/event-stream')) {
+    const lines = text.split('\n').filter(l => l.startsWith('data:'));
+    if (!lines.length) return null;
+    return JSON.parse(lines[lines.length - 1].slice(5).trim());
+  }
+  return text ? JSON.parse(text) : null;
+}
+
+async function connect() {
+  const status = document.getElementById('conn-status');
+  try {
+    const cfg = await fetch('/config').then(r => r.json());
+    const init = await rpc('initialize', {
+      protocolVersion: '2025-03-26', capabilities: {},
+      clientInfo: { name: 'why-moved-webclient', version: '1.0' },
+    });
+    await rpc('notifications/initialized', undefined, true);
+    const listed = await rpc('tools/list', {});
+    tools = listed.tools;
+    status.innerHTML = `<b>● 연결됨</b> ${init.serverInfo.name} — ${cfg.mcp_url}`;
+    renderToolList();
+  } catch (e) {
+    status.innerHTML = `<span style="color:var(--danger)">연결 실패: ${e.message}</span>`;
+    document.getElementById('tool-list').textContent = '서버에 연결할 수 없습니다.';
+  }
+}
+
+function renderToolList() {
+  const el = document.getElementById('tool-list');
+  el.innerHTML = '';
+  for (const t of tools) {
+    const btn = document.createElement('button');
+    btn.className = 'tool-btn';
+    btn.innerHTML = `<b>${t.name}</b><small>${t.description.split('.')[0]}</small>`;
+    btn.onclick = () => selectTool(t.name);
+    btn.id = 'tool-btn-' + t.name;
+    el.appendChild(btn);
+  }
+}
+
+function selectTool(name, presetArgs) {
+  currentTool = tools.find(t => t.name === name);
+  document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('tool-btn-' + name);
+  if (btn) btn.classList.add('active');
+
+  const area = document.getElementById('form-area');
+  const props = (currentTool.inputSchema && currentTool.inputSchema.properties) || {};
+  const required = new Set((currentTool.inputSchema && currentTool.inputSchema.required) || []);
+  let html = `<h3>${currentTool.name}</h3><p class="desc">${currentTool.description}</p>`;
+  for (const [key, schema] of Object.entries(props)) {
+    const preset = presetArgs && presetArgs[key] !== undefined
+      ? (Array.isArray(presetArgs[key]) ? presetArgs[key].join(',') : presetArgs[key]) : '';
+    html += `<div class="field"><label>${key}${required.has(key) ? ' *' : ''} <em style="color:var(--line)">${schema.type || ''}</em></label>
+      <input data-key="${key}" data-type="${schemaType(schema)}" value="${preset}"
+        placeholder="${(schema.description || '').slice(0, 60)}"></div>`;
+  }
+  html += `<button class="run" onclick="runTool()">실행</button>`;
+  area.innerHTML = html;
+}
+
+function schemaType(schema) {
+  const t = schema.type || (schema.anyOf ? schema.anyOf.map(s => s.type).find(x => x && x !== 'null') : 'string');
+  return t || 'string';
+}
+
+async function runTool() {
+  const args = {};
+  document.querySelectorAll('#form-area input').forEach(inp => {
+    const v = inp.value.trim();
+    if (!v) return;
+    const t = inp.dataset.type;
+    if (t === 'integer' || t === 'number') args[inp.dataset.key] = Number(v);
+    else if (t === 'array') args[inp.dataset.key] = v.split(',').map(s => s.trim());
+    else args[inp.dataset.key] = v;
+  });
+  const btn = document.querySelector('#form-area .run');
+  btn.disabled = true;
+  document.getElementById('result').innerHTML = `<span class="spinner">⏳ ${currentTool.name} 실행 중… (공시·시세 조회에 수 초 걸릴 수 있어요)</span>`;
+  const started = Date.now();
+  try {
+    const result = await rpc('tools/call', { name: currentTool.name, arguments: args });
+    renderResult(result, Date.now() - started);
+  } catch (e) {
+    document.getElementById('result').innerHTML = `<span style="color:var(--danger)">오류: ${e.message}</span>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderResult(result, ms) {
+  let data = result.structuredContent;
+  if (!data && result.content && result.content[0] && result.content[0].type === 'text') {
+    try { data = JSON.parse(result.content[0].text); } catch { data = { text: result.content[0].text }; }
+  }
+  if (data && data.result !== undefined && Object.keys(data).length === 1) data = data.result;
+  const el = document.getElementById('result');
+  let html = `<div style="color:var(--sub);font-size:12px;margin-bottom:10px">응답 ${(ms/1000).toFixed(1)}초</div>`;
+
+  if (data.error) { el.innerHTML = html + `<div class="r-card level-위험">${data.error}</div>`; return; }
+  if (data.explanation) html += `<div class="r-explanation">${esc(data.explanation)}</div>`;
+  if (data.summary) html += `<div class="r-explanation">${esc(data.summary)}</div>`;
+  if (data.narrative) html += `<div class="r-explanation"><span class="grade-badge">${data.grade || ''}</span>${esc(data.narrative)}</div>`;
+  if (data.risk_level) html += `<div class="r-section"><h4>종합 판정</h4><div class="r-card">위험 등급: <b class="level-${data.risk_level}">${data.risk_level}</b> (룰 ${data.checked_rules}개 점검${data.unavailable_rules && data.unavailable_rules.length ? ', 확인불가: ' + data.unavailable_rules.join(',') : ''})</div></div>`;
+  if (data.scores) {
+    const names = { value: '가치', growth: '성장', profitability: '수익성', stability: '건전성', dividend: '배당' };
+    html += `<div class="r-section"><h4>5축 점수</h4>`;
+    for (const [k, v] of Object.entries(data.scores)) {
+      html += `<div class="score-bar"><span class="name">${names[k] || k}</span><div class="bar"><div class="fill" style="width:${v || 0}%"></div></div><span class="val">${v === null ? '—' : v}</span></div>`;
+    }
+    html += `</div>`;
+  }
+  html += renderCards('원인 요인', data.factors, f => `[${f.type}] ${esc(f.summary)}${f.source_url ? ` <a href="${f.source_url}" target="_blank">원문↗</a>` : ''}`);
+  html += renderCards('위험 신호', data.signals, s => `<b class="level-${s.severity}">[${s.severity}]</b> ${esc(s.title)} — ${esc(s.easy_explanation)} ${s.evidence ? '(' + esc(s.evidence) + ')' : ''}${s.source_url ? ` <a href="${s.source_url}" target="_blank">원문↗</a>` : ''}`);
+  html += renderCards('내부자·큰손 이벤트', data.events, e2 => `${e2.date} <b>${esc(e2.who)}</b> ${esc(e2.role || '')} — <b>${e2.action}</b> ${e2.shares ? e2.shares.toLocaleString() + '주' : ''} <a href="${e2.source_url}" target="_blank">원문↗</a>`);
+  html += renderCards('주요 공시', data.top_disclosures, d => `<b>${esc(d.company)}</b> [${esc(d.type)}] ${esc(d.title)}<br>· 무슨 일이야? ${esc(d.what_happened)}<br>· 그래서 뭐? ${esc(d.so_what)}<br>· 나랑 무슨 상관? ${esc(d.why_care)} <a href="${d.url}" target="_blank">원문↗</a>`);
+  html += renderCards('검색 결과', data.results, r => `<b>${esc(r.name)}</b> (${r.code}, ${r.market}) — 종가 ${r.close ? r.close.toLocaleString() : '?'}원, PER ${r.per ?? '—'}, PBR ${r.pbr ?? '—'}, 배당 ${r.div ?? '—'}%`);
+  if (data.disclosure) html += `<div class="r-section"><h4>공시 통역</h4><div class="r-card"><b>${esc(data.disclosure.company)}</b> — ${esc(data.disclosure.title)} (${data.disclosure.date}) <a href="${data.disclosure.url}" target="_blank">원문↗</a><br><br>· <b>무슨 일이야?</b> ${esc(data.what_happened)}<br>· <b>그래서 뭐?</b> ${esc(data.so_what)}<br>· <b>나랑 무슨 상관?</b> ${esc(data.why_care)}</div></div>`;
+  html += renderCards('용어 풀이', data.terms, t => `<b>${esc(t.term)}</b>: ${esc(t.easy_def)}`);
+  if (data.checks) html += renderCards('체크리스트', data.checks, c => `${c.passed ? '✅' : '❌'} ${esc(c.name)} — ${esc(c.easy_explanation)}`);
+  if (data.note) html += `<div class="r-section"><div class="r-card">${esc(data.note)}</div></div>`;
+  if (data.market_note) html += `<div class="r-section"><div class="r-card">${esc(data.market_note)}</div></div>`;
+  if (data.sources && data.sources.length) html += renderCards('출처', data.sources, s => `<a href="${s.url}" target="_blank">${esc(s.title)}</a> ${s.date || ''}`);
+  if (data.disclaimer) html += `<div class="disclaimer">${esc(data.disclaimer)}</div>`;
+  html += `<details class="raw"><summary>원본 JSON 보기</summary><pre>${esc(JSON.stringify(data, null, 2))}</pre></details>`;
+  el.innerHTML = html;
+}
+
+function renderCards(title, items, renderFn) {
+  if (!items || !items.length) return '';
+  return `<div class="r-section"><h4>${title}</h4>` +
+    items.map(i => `<div class="r-card">${renderFn(i)}</div>`).join('') + `</div>`;
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+document.getElementById('quick-chips').addEventListener('click', async (e) => {
+  const chip = e.target.closest('.chip');
+  if (!chip || !tools.length) return;
+  selectTool(chip.dataset.tool, JSON.parse(chip.dataset.args));
+  runTool();
+});
+
+connect();
+</script>
+</body>
+</html>
